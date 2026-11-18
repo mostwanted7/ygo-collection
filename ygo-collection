@@ -1,0 +1,9 @@
+#!/bin/sh
+# Resolve the app directory so launching from another directory works too.
+set -eu
+APP_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "YGO Collection needs Python 3. Install python3 using your Linux package manager." >&2
+    exit 1
+fi
+exec python3 "$APP_DIR/collection.py" "$@"

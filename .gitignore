@@ -1,0 +1,26 @@
+__pycache__/
+*.tmp
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Personal collection, backups, and public exports are never source files.
+collection.json
+collection*.json.*
+collection*.bak
+exports/
+
+# Local configuration, credentials, and editor files.
+.env
+.env.*
+!.env.example
+.aws/
+.codex/
+.agents/
+.idea/
+.vscode/
+*~
+.DS_Store

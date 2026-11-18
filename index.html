@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YGO Collection</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='6' y='2' width='20' height='28' rx='3' fill='%23c9a54a'/><rect x='9' y='6' width='14' height='12' fill='%23141822'/></svg>">
+<style>
+  :root {
+    --bg: #0f1218; --panel: #171b24; --line: #272d3a; --text: #e8ebf2; --dim: #8d96a8;
+    --accent: #e0b44a; --accent-ink: #1b1608; --danger: #d0566b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, sans-serif; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line);
+           padding: 12px 20px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  h1 { font-size: 17px; margin: 0; white-space: nowrap; }
+  .stats { color: var(--dim); white-space: nowrap; }
+  input, select { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
+                  padding: 9px 12px; font: inherit; }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  #search { flex: 1; min-width: 220px; font-size: 15px; }
+  [hidden] { display: none !important; }
+  #entryHint { color: var(--dim); font-size: 12px; }
+  main { padding: 16px 20px 40px; }
+  .bar { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+  .bar h2 { font-size: 15px; margin: 0 auto 0 0; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px;
+          display: flex; flex-direction: column; gap: 6px; position: relative; }
+  .tile img { width: 100%; aspect-ratio: 177 / 254; object-fit: cover; border-radius: 5px; cursor: zoom-in;
+              background: #1d2230; display: block; }
+  .tile .name { font-size: 12.5px; font-weight: 600; min-height: 2.8em; overflow: hidden;
+                display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .qty { display: flex; gap: 4px; }
+  .qty button { flex: 1; padding: 5px 0; border-radius: 6px; border: 1px solid var(--line); background: var(--bg);
+                color: var(--text); font: 600 13px system-ui, sans-serif; cursor: pointer; }
+  .qty button:hover { border-color: var(--accent); }
+  .qty button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .qty button.del { flex: 0 0 30px; color: var(--danger); }
+  .qty button.del:hover { border-color: var(--danger); }
+  .badge { position: absolute; top: 4px; right: 4px; background: var(--accent); color: var(--accent-ink);
+           font-weight: 800; border-radius: 999px; padding: 2px 9px; font-size: 13px; box-shadow: 0 1px 4px #0008; }
+  #results { background: #121620; border-bottom: 1px solid var(--line); padding: 16px 20px; display: none; }
+  #results.open { display: block; }
+  #error { display: none; background: var(--danger); color: #fff; padding: 10px 20px; font-weight: 600; }
+  #error.open { display: block; }
+  .hint { color: var(--dim); padding: 30px 0; text-align: center; }
+  #modal { position: fixed; inset: 0; background: #000c; display: none; align-items: center; justify-content: center;
+           z-index: 10; padding: 20px; }
+  #modal.open { display: flex; }
+  .big { display: flex; gap: 22px; max-width: 860px; background: var(--panel); border: 1px solid var(--line);
+         border-radius: 12px; padding: 18px; max-height: 92vh; overflow: auto; }
+  .big img { width: 320px; max-width: 45vw; border-radius: 8px; align-self: flex-start; }
+  .big h3 { margin: 0 0 4px; font-size: 19px; }
+  .big .meta { color: var(--dim); margin-bottom: 12px; }
+  .big p { white-space: pre-wrap; margin: 0 0 16px; }
+  .big .qty { max-width: 240px; }
+  @media (max-width: 640px) { .big { flex-direction: column; } .big img { width: 100%; max-width: none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>YGO Collection</h1>
+  <input id="search" placeholder="Search a card to add…  (Ctrl+K)" autocomplete="off" autofocus>
+  <span id="entryHint">Pick quantity, then type the next card.</span>
+  <span class="stats" id="stats"></span>
+</header>
+<div id="error">Can't reach the collection server. Close this window and open YGO Collection again.</div>
+<section id="results"><div class="grid" id="resultGrid"></div></section>
+<main>
+  <div class="bar">
+    <h2>My collection</h2>
+    <input id="filter" placeholder="Filter collection…" autocomplete="off">
+    <select id="kind">
+      <option value="">All types</option><option value="monster">Monsters</option>
+      <option value="spell">Spells</option><option value="trap">Traps</option>
+    </select>
+    <select id="sort">
+      <option value="name">Sort: name</option><option value="recent">Sort: recently added</option>
+      <option value="qty">Sort: quantity</option>
+    </select>
+  </div>
+  <div class="grid" id="grid"></div>
+</main>
+<div id="modal"></div>
+<script>
+const snapshot = null;
+const readOnly = snapshot !== null;
+const $ = s => document.querySelector(s);
+async function api(url, opts) {
+  try {
+    const r = await fetch(url, opts);
+    if (!r.ok) {
+      const body = await r.json();
+      throw new Error(body.error || "Request failed");
+    }
+    $("#error").classList.remove("open");
+    return r;
+  } catch (e) {
+    $("#error").textContent = "Could not load or save your collection: " + e.message;
+    $("#error").classList.add("open");
+    throw e;
+  }
+}
+let collection = new Map();   // id -> card with qty
+let lastResults = [];
+const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+const esc = s => s.replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+
+try { $("#sort").value = localStorage.getItem("sort") || "name"; } catch {}
+
+async function load() {
+  const list = readOnly ? snapshot : await (await api("/api/collection")).json();
+  collection = new Map(list.map(c => [c.id, c]));
+  render();
+}
+
+let saving = false;
+async function setQty(card, qty, nextSearch = false) {
+  if (readOnly || saving) return;
+  saving = true;
+  const query = $("#search").value;
+  try {
+    await api("/api/set", {method: "POST", headers: {"Content-Type": "application/json"},
+                                       body: JSON.stringify({id: card.id, qty})});
+    if (qty === 0) collection.delete(card.id);
+    else collection.set(card.id, {...card, qty, added: collection.get(card.id)?.added || Date.now() / 1000});
+    render();
+    renderResults();
+    if ($("#modal").classList.contains("open")) openModal(card);
+    if (nextSearch && qty > 0 && $("#search").value === query) {
+      $("#search").focus();
+      $("#search").select();
+    }
+  } catch {} // api displays the error; preserve the search for retrying.
+  finally { saving = false; }
+}
+
+function qtyButtons(card, withDelete) {
+  if (readOnly) return "";
+  const cur = collection.get(card.id)?.qty || 0;
+  const b = [1, 2, 3].map(n => `<button class="${n === cur ? "on" : ""}" data-qty="${n}" title="${n} cop${n > 1 ? "ies" : "y"}">${n}</button>`);
+  if (withDelete && cur) b.push(`<button class="del" data-qty="0" title="Remove from collection">✕</button>`);
+  return `<div class="qty">${b.join("")}</div>`;
+}
+
+function tile(card, withDelete) {
+  const cur = collection.get(card.id)?.qty;
+  return `<div class="tile" data-id="${card.id}">
+    ${cur ? `<span class="badge">×${cur}</span>` : ""}
+    <img loading="lazy" src="${imageSource(card)}" alt="${esc(card.name)}">
+    <div class="name" title="${esc(card.name)}">${esc(card.name)}</div>
+    ${qtyButtons(card, withDelete)}
+  </div>`;
+}
+
+function render() {
+  const f = norm($("#filter").value), kind = $("#kind").value, sort = $("#sort").value;
+  let cards = [...collection.values()].filter(c => (!f || norm(c.name).includes(f)) && (!kind || c.kind === kind));
+  const byName = (a, b) => a.name.localeCompare(b.name);
+  cards.sort(sort === "recent" ? (a, b) => b.added - a.added || byName(a, b)
+           : sort === "qty" ? (a, b) => b.qty - a.qty || byName(a, b) : byName);
+  $("#grid").innerHTML = cards.length ? cards.map(c => tile(c, true)).join("")
+    : `<div class="hint">${collection.size ? "No cards match." : readOnly ? "This collection is empty." : "Your collection is empty. Search a card above and pick how many copies you have."}</div>`;
+  const copies = [...collection.values()].reduce((s, c) => s + c.qty, 0);
+  $("#stats").textContent = `${collection.size} cards · ${copies} copies`;
+}
+
+function renderResults() {
+  const open = $("#search").value.trim() !== "";
+  $("#results").classList.toggle("open", open);
+  if (!open) return;
+  $("#resultGrid").innerHTML = lastResults.length ? lastResults.map(c => tile(c, true)).join("")
+    : `<div class="hint">No card found.</div>`;
+}
+
+let timer, seq = 0;
+$("#search").addEventListener("input", () => {
+  clearTimeout(timer);
+  const q = $("#search").value.trim(), my = ++seq;
+  lastResults = [];
+  renderResults();
+  timer = setTimeout(async () => {
+    try {
+      const results = q ? await (await api("/api/search?q=" + encodeURIComponent(q))).json() : [];
+      if (my === seq) { lastResults = results; renderResults(); }
+    } catch {} // api displays the error.
+  }, 150);
+});
+$("#search").addEventListener("keydown", e => {
+  if (e.key === "Escape") { clearTimeout(timer); ++seq; $("#search").value = ""; lastResults = []; renderResults(); }
+});
+document.addEventListener("keydown", e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    $("#modal").classList.remove("open");
+    const field = $(readOnly ? "#filter" : "#search");
+    field.focus(); field.select();
+  }
+  if (e.key === "Escape" && $("#modal").classList.contains("open")) $("#modal").classList.remove("open");
+});
+["#filter", "#kind", "#sort"].forEach(s => $(s).addEventListener("input", () => {
+  try { localStorage.setItem("sort", $("#sort").value); } catch {}
+  render();
+}));
+
+function findCard(id) { return collection.get(id) || lastResults.find(c => c.id === id); }
+
+document.addEventListener("click", e => {
+  const t = e.target.closest(".tile");
+  if (t) {
+    const card = findCard(+t.dataset.id);
+    const btn = e.target.closest("button[data-qty]");
+    if (btn) setQty(card, +btn.dataset.qty, !!t.closest("#results"));
+    else if (e.target.tagName === "IMG") openModal(card);
+    return;
+  }
+  const mb = e.target.closest("#modal button[data-qty]");
+  if (mb) { setQty(findCard(+$("#modal").dataset.id), +mb.dataset.qty); return; }
+  if (e.target.id === "modal") $("#modal").classList.remove("open");
+});
+
+function meta(c) {
+  if (c.kind !== "monster") return c.kind[0].toUpperCase() + c.kind.slice(1);
+  const link = c.type & 0x4000000, xyz = c.type & 0x800000;
+  return `Monster · ${link ? "Link-" + c.level : (xyz ? "Rank " : "Level ") + c.level} · ATK ${c.atk < 0 ? "?" : c.atk}`
+       + (link ? "" : ` / DEF ${c.def < 0 ? "?" : c.def}`);
+}
+
+function openModal(card) {
+  const m = $("#modal");
+  m.dataset.id = card.id;
+  m.innerHTML = `<div class="big"><img data-id="${card.id}" src="${imageSource(card)}" alt=""><div>
+    <h3>${esc(card.name)}</h3><div class="meta">${esc(meta(card))}</div>
+    <p>${esc(card.desc)}</p>${qtyButtons(card, true)}</div></div>`;
+  m.classList.add("open");
+}
+
+function imageSource(card) { return readOnly ? esc(card.image) : `/pic/${card.id}`; }
+if (readOnly) {
+  $("#search").hidden = true;
+  $("#entryHint").textContent = "Read-only collection snapshot";
+  document.addEventListener("error", e => {
+    if (e.target.tagName !== "IMG") return;
+    const id = +(e.target.dataset.id || e.target.closest(".tile")?.dataset.id);
+    const fallback = collection.get(id)?.fallback;
+    if (fallback && e.target.src !== fallback) e.target.src = fallback;
+  }, true);
+}
+load().catch(() => {}); // api displays startup errors.
+</script>
+</body>
+</html>
